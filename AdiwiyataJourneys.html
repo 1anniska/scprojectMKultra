@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> Adiwiyata Journey </title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-deep:#0d1b2e; --amber:#e8a24d; --cyan:#6fd6d1;
+    --paper:#efe6d6; --ink:#171310; --rain:#3a4a5c;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden;font-family:'VT323',monospace;
+    display:flex;align-items:center;justify-content:center;}
+  #game{
+    position:relative;
+    width:min(100vw, 56.25vh);
+    aspect-ratio:9/16;
+    max-height:100vh;
+    background:var(--sky-deep);
+    overflow:hidden;
+    box-shadow:0 0 80px rgba(0,0,0,.9);
+  }
+
+  /* ---- shader-ish overlays for extra "HD" pop ---- */
+  #scanlines{position:absolute;inset:0;pointer-events:none;z-index:80;
+    background:repeating-linear-gradient(rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.10) 3px);
+    mix-blend-mode:multiply;}
+  #vignette{position:absolute;inset:0;pointer-events:none;z-index:79;box-shadow:inset 0 0 160px rgba(0,0,0,.55);}
+  #raysOverlay{position:absolute;inset:-40%;pointer-events:none;z-index:8;mix-blend-mode:screen;opacity:.28;
+    background:conic-gradient(from 0deg at 50% 20%,
+      rgba(255,236,190,0) 0deg, rgba(255,236,190,.5) 4deg, rgba(255,236,190,0) 10deg,
+      rgba(255,236,190,0) 40deg, rgba(255,236,190,.35) 44deg, rgba(255,236,190,0) 50deg,
+      rgba(255,236,190,0) 120deg, rgba(255,236,190,.4) 125deg, rgba(255,236,190,0) 132deg,
+      rgba(255,236,190,0) 360deg);
+    animation:rayspin 26s linear infinite;}
+  @keyframes rayspin{ to{ transform:rotate(360deg);} }
+  #bloom{position:absolute;inset:0;pointer-events:none;z-index:9;
+    background:radial-gradient(ellipse at 50% 78%, rgba(232,162,77,.16), rgba(232,162,77,0) 55%);
+    animation:bloomPulse 4.5s ease-in-out infinite;}
+  @keyframes bloomPulse{0%,100%{opacity:.6;}50%{opacity:1;}}
+
+  #bgLayer{position:absolute;inset:0;}
+  .scene-bg{position:absolute;inset:0;opacity:0;transition:opacity 1.3s ease, transform 3s ease;}
+  .scene-bg.active{opacity:1;}
+
+  .bg-room{background:linear-gradient(180deg,#2b3d54 0%,#1a2738 55%,#111a26 100%);}
+  .bg-room .frame{position:absolute;left:30%;right:30%;top:8%;bottom:20%;border:10px solid #0b0f14;
+    background:linear-gradient(200deg,#7fa6c9 0%,#4d6d8f 45%,#33506c 100%);box-shadow:inset 0 0 30px rgba(0,0,0,.4);}
+  .bg-room .frame::before,.bg-room .frame::after{content:"";position:absolute;background:#0b0f14;}
+  .bg-room .frame::before{left:50%;top:0;bottom:0;width:8px;transform:translateX(-50%);}
+  .bg-room .frame::after{top:50%;left:0;right:0;height:8px;transform:translateY(-50%);}
+  .bg-room .cloud{position:absolute;background:#e9eef2;opacity:.75;border-radius:40%;filter:blur(1px);}
+
+  .bg-sky{background:linear-gradient(180deg,#7fa6c9 0%,#a9c7de 40%,#dbe9f0 100%);}
+  .bg-sky.zoom{transform:scale(1.6);}
+  .bg-sky .cloud{position:absolute;background:#fff;opacity:.85;border-radius:45%;filter:blur(1.5px);}
+
+  .bg-closeup{background:linear-gradient(180deg,#9cc0dd 0%,#cfe3ee 60%,#eef5f8 100%);}
+  .bg-black{background:#000;}
+
+  .bg-rain{background:linear-gradient(180deg,#3a4a5c 0%,#2a3644 55%,#1c2530 100%);overflow:hidden;}
+  .bg-rain .city{position:absolute;bottom:0;left:0;right:0;height:48%;
+    background:repeating-linear-gradient(90deg,#222c38 0 40px,#1a222c 40px 44px);}
+  .bg-rain .city .win{position:absolute;width:4px;height:6px;background:#e8c878;opacity:.7;}
+  .bg-rain .drop{position:absolute;top:-10%;width:2px;height:22px;
+    background:linear-gradient(180deg,rgba(255,255,255,0),rgba(210,225,235,.55));animation:fall linear infinite;}
+  @keyframes fall{to{transform:translateY(120vh);}}
+
+  .bg-class{background:linear-gradient(180deg,#4a3d2e 0%,#3a2f22 55%,#241c14 100%);}
+  .bg-class .board{position:absolute;left:6%;width:30%;top:12%;height:34%;background:#1e3d2e;border:8px solid #5a4632;}
+
+  .bg-hall{background:linear-gradient(180deg,#3d4a52 0%,#2b363c 55%,#1a2226 100%);}
+  .bg-hall .lockers{position:absolute;bottom:0;left:0;right:0;height:52%;
+    background:repeating-linear-gradient(90deg,#5c7480 0 40px,#4a606b 40px 44px);
+    box-shadow:inset 0 10px 20px rgba(0,0,0,.4);}
+  .bg-hall .lockers::after{content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 40px, rgba(0,0,0,.25) 40px 44px);}
+
+  .bg-study{background:linear-gradient(180deg,#5b3f2c 0%,#3a271b 55%,#211712 100%);overflow:hidden;}
+  .bg-study .beam{position:absolute;top:-10%;left:52%;width:34%;height:120%;
+    background:linear-gradient(180deg, rgba(255,214,150,.35), rgba(255,214,150,0) 80%);
+    clip-path:polygon(30% 0,70% 0,100% 100%,0 100%);
+    transform:rotate(8deg);}
+  .bg-study .desk{position:absolute;bottom:0;left:0;right:0;height:22%;background:#2a1c12;}
+
+  #charWrap{position:absolute; left:0; right:0; bottom:0; top:0; z-index:10; pointer-events:none;}
+  #charGlow{position:absolute; bottom:6%; left:50%; width:32%; height:40%; transform:translateX(-50%);
+    background:radial-gradient(circle, rgba(255,220,170,.35), rgba(255,220,170,0) 70%);
+    filter:blur(6px); z-index:9; display:none;}
+  #charCanvas{position:absolute; bottom:0%; left:50%; transform:translateX(-50%);
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    filter:drop-shadow(0 14px 18px rgba(0,0,0,.5));
+    height:58%; width:auto;
+    z-index:10; display:none;}
+
+  #titleScreen{position:absolute;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 30%,#23324a 0%,#0d1b2e 70%);text-align:center;padding:0 8%;}
+  #titleScreen h1{font-family:'Press Start 2P',monospace;color:var(--amber);font-size:clamp(20px,5vw,40px);
+    line-height:1.6;text-shadow:3px 3px 0 #402a12, -2px 0 0 #6fd6d155;margin-bottom:6px;}
+  #titleScreen .sub{font-family:'Press Start 2P',monospace;color:var(--cyan);font-size:clamp(9px,1.6vw,13px);
+    margin-bottom:40px;letter-spacing:1px;}
+  #titleScreen button{font-family:'Press Start 2P',monospace;background:var(--ink);color:var(--paper);
+    border:3px solid var(--amber);padding:14px 26px;font-size:clamp(10px,2vw,14px);cursor:pointer;
+    box-shadow:4px 4px 0 rgba(0,0,0,.5);animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+
+  #textboxWrap{position:absolute;left:6%;right:6%;bottom:3%;z-index:60;opacity:0;
+    transition:opacity .5s ease;pointer-events:none;}
+  #textboxWrap.show{opacity:1;pointer-events:auto;}
+  #nameTag{display:inline-block;font-family:'Press Start 2P',monospace;font-size:10px;color:var(--ink);
+    background:var(--amber);padding:5px 11px;border:3px solid var(--ink);margin-left:12px;transform:translateY(6px);
+    text-shadow:none;}
+  #textbox{background:rgba(10,14,20,.86);border:3px solid var(--amber);padding:10px 14px 8px;min-height:50px;
+    max-height:26vh;overflow-y:auto;
+    color:var(--paper);font-size:16px;line-height:1.28; box-shadow:0 0 24px rgba(232,162,77,.15);}
+  #continueHint{position:absolute;right:18px;bottom:8px;font-family:'Press Start 2P',monospace;font-size:10px;
+    color:var(--cyan);animation:bounce 1s infinite;}
+  @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
+
+  #topBtns{position:absolute;top:10px;right:10px;z-index:95;display:flex;gap:6px;}
+  #topBtns button{font-family:'Press Start 2P',monospace;font-size:9px;
+    background:rgba(0,0,0,.55);color:var(--paper);border:2px solid var(--cyan);padding:6px 8px;cursor:pointer;}
+
+  #hud{position:absolute;top:12px;left:12px;z-index:60;display:none;width:min(46%,300px);
+    font-family:'Press Start 2P',monospace;font-size:9px;color:var(--paper);}
+  #hud .label{margin-bottom:4px;text-shadow:2px 2px 0 #000;}
+  #hud .barOuter{border:2px solid var(--cyan);height:14px;background:rgba(0,0,0,.5);}
+  #hud .barInner{height:100%;background:linear-gradient(90deg,#e8a24d,#6fd6d1);width:10%;transition:width .6s ease;}
+
+  .hotspot{position:absolute;z-index:20;font-family:'Press Start 2P',monospace;font-size:10px;
+    background:rgba(10,14,20,.85);color:var(--paper);border:2px solid var(--amber);padding:10px 12px;
+    cursor:pointer;}
+  .hotspot:active{transform:translateY(2px);}
+
+  #choices{position:absolute;left:6%;right:6%;bottom:14%;z-index:65;display:none;flex-direction:column;gap:6px;
+    max-width:700px;}
+  #choices button{font-family:'VT323',monospace;font-size:17px;text-align:left;background:rgba(10,14,20,.9);
+    color:var(--paper);border:2px solid var(--cyan);padding:7px 12px;cursor:pointer;}
+  #choices button:hover{border-color:var(--amber);color:var(--amber);}
+
+  #questScreen{position:absolute;inset:0;z-index:85;display:none;background:linear-gradient(180deg,#1a2330 0%,#12181f 100%);
+    padding:26px 8%;overflow-y:auto;}
+  #questScreen h2{font-family:'Press Start 2P',monospace;color:var(--amber);font-size:18px;text-align:center;margin-bottom:4px;}
+  #questScreen .tagline{text-align:center;color:var(--cyan);font-size:18px;margin-bottom:22px;}
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;max-width:1100px;margin:0 auto;}
+  .quest-card{background:rgba(255,255,255,.04);border:2px solid var(--cyan);padding:14px 16px;}
+  .quest-card h3{font-family:'Press Start 2P',monospace;font-size:11px;color:var(--paper);margin:0 0 8px;}
+  .quest-card .meta{color:var(--amber);font-size:16px;margin-bottom:6px;}
+  .quest-card p{color:#cfd8e2;font-size:18px;margin:0 0 8px;line-height:1.3;}
+  .quest-card .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .quest-card .status{display:inline-block;font-family:'Press Start 2P',monospace;font-size:9px;padding:4px 8px;
+    background:var(--rain);color:var(--paper);}
+  .quest-card .status.done{background:#3f6b4a;}
+  .quest-card button.startBtn{font-family:'Press Start 2P',monospace;font-size:9px;background:var(--amber);
+    color:var(--ink);border:2px solid var(--ink);padding:8px 10px;cursor:pointer;}
+  .quest-card button.startBtn[disabled]{background:#555;color:#999;cursor:not-allowed;}
+
+  #endScreen{position:absolute;inset:0;z-index:96;display:none;align-items:center;justify-content:center;flex-direction:column;
+    background:radial-gradient(circle at 50% 40%,#2a3d2e 0%,#0d1b12 75%);text-align:center;padding:0 8%;}
+  #endScreen h2{font-family:'Press Start 2P',monospace;color:var(--amber);font-size:clamp(16px,3vw,24px);margin-bottom:16px;}
+  #endScreen p{color:var(--paper);font-size:22px;max-width:640px;line-height:1.4;margin-bottom:20px;}
+</style>
+</head>
+<body>
+<div id="game">
+
+  <div id="titleScreen">
+    <h1>ADIWIYATA<br>JOURNEY</h1>
+    <div class="sub">— sebuah kisah Aksara &amp; Langit —</div>
+    <button id="startBtn" onclick="startGame()">▶ Play</button>
+  </div>
+
+  <div id="bgLayer">
+    <div class="scene-bg bg-room" id="scene-room">
+      <div class="frame">
+        <div class="cloud" style="width:70px;height:24px;top:20%;left:15%;"></div>
+        <div class="cloud" style="width:50px;height:18px;top:40%;left:55%;"></div>
+      </div>
+    </div>
+    <div class="scene-bg bg-sky" id="scene-sky">
+      <div class="cloud" style="width:120px;height:40px;top:22%;left:10%;"></div>
+      <div class="cloud" style="width:90px;height:30px;top:45%;left:50%;"></div>
+      <div class="cloud" style="width:70px;height:26px;top:65%;left:20%;"></div>
+    </div>
+    <div class="scene-bg bg-closeup" id="scene-closeup"></div>
+    <div class="scene-bg bg-black" id="scene-black"></div>
+    <div class="scene-bg bg-rain" id="scene-rain">
+      <div class="city" id="cityWins"></div>
+      <div id="drops"></div>
+    </div>
+    <div class="scene-bg bg-class" id="scene-class"><div class="board"></div></div>
+    <div class="scene-bg bg-hall" id="scene-hall"><div class="lockers"></div></div>
+    <div class="scene-bg bg-study" id="scene-study"><div class="beam"></div><div class="desk"></div></div>
+  </div>
+
+  <div id="raysOverlay"></div>
+  <div id="bloom"></div>
+
+  <div id="charWrap">
+    <div id="charGlow"></div>
+    <canvas id="charCanvas"></canvas>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="scanlines"></div>
+
+  <div id="topBtns">
+    <button id="voBtn">🎙️ VO ON</button>
+    <button id="muteBtn">🔊 SOUND</button>
+    <button id="skipBtn">SKIP ▶▶</button>
+    <button id="restartBtn">↻ RESTART</button>
+  </div>
+
+  <div id="hud">
+    <div class="label">Chemistry</div>
+    <div class="barOuter"><div class="barInner" id="barInner"></div></div>
+  </div>
+
+  <div id="hotspotLayer"></div>
+  <div id="choices"></div>
+
+  <div id="textboxWrap">
+    <div id="nameTag" style="display:none;"></div>
+    <div id="textbox"></div>
+    <div id="continueHint">▼ klik</div>
+  </div>
+
+  <div id="questScreen">
+    <h2>QUEST LOG</h2>
+    <div class="tagline">Hari Pertama yang (Lagi-lagi) Ribet</div>
+    <div class="qgrid">
+      <div class="quest-card" id="qcard1">
+        <h3>#01 — BAJU YANG KETINGGALAN</h3>
+        <div class="meta">Pemberi Quest: Diri Sendiri · Lokasi: Ruang Loker</div>
+        <p>Aksara lupa bawa baju olahraga dan pelajaran PJOK tinggal 10 menit lagi. Cari pinjeman baju sebelum guru olahraga yang killer itu ngamuk.</p>
+        <div class="row">
+          <span class="status" id="qstatus1">SEDANG BERJALAN</span>
+          <button class="startBtn" id="qstart1">▶ MULAI QUEST</button>
+        </div>
+      </div>
+      <div class="quest-card" id="qcard2">
+        <h3>#02 — SOK KENAL, SOK DEKAT</h3>
+        <div class="meta">Pemberi Quest: Langit · Lokasi: Kelas X</div>
+        <p>Langit makin nempel aja tiap istirahat. Cari tahu alasan asli kenapa keluarga Tanoko Suryaatmaja mindahin dia ke sekolah ini.</p>
+        <div class="row">
+          <span class="status" id="qstatus2">TERKUNCI</span>
+          <button class="startBtn" id="qstart2" disabled>🔒 TERKUNCI</button>
+        </div>
+      </div>
+      <div class="quest-card" id="qcard3">
+        <h3>#03 — OTAK UDANG VS GLOBAL WARMING</h3>
+        <div class="meta">Pemberi Quest: Bu Guru Biologi · Lokasi: Ruang Kelas (sore)</div>
+        <p>Bantuin Langit belajar sebelum ulangan Biologi besok, biar dia nggak nanya hal absurd lagi di depan kelas.</p>
+        <div class="row">
+          <span class="status" id="qstatus3">TERKUNCI</span>
+          <button class="startBtn" id="qstart3" disabled>🔒 TERKUNCI</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="endScreen">
+    <h2>CHAPTER 1 — SELESAI</h2>
+    <p id="endSummary"></p>
+    <p style="color:#6fd6d1;font-size:18px;">Chapter 2: "Nama Baik Keluarga" — segera hadir.</p>
+    <button id="endRestart" style="font-family:'Press Start 2P',monospace;background:#171310;color:#efe6d6;
+      border:3px solid #e8a24d;padding:12px 20px;font-size:12px;cursor:pointer;">↻ MAIN LAGI</button>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   PROCEDURAL "HD" PIXEL SPRITES (drawn on a 32x40 logical
+   grid at 4px per pixel = 128x160 canvas) — real character
+   art instead of gradient placeholders.
+   ========================================================= */
+const COLS=32, ROWS=40, UNIT=4;
+
+function ell(x,y,ecx,ecy,rx,ry){ const dx=(x-ecx)/rx, dy=(y-ecy)/ry; return dx*dx+dy*dy<=1; }
+
+function buildGrid(cfg){
+  const grid=[];
+  const cx=16;
+  for(let y=0;y<ROWS;y++){
+    const row=[];
+    for(let x=0;x<COLS;x++){
+      let col=null;
+      // hair mass (big dome covering sides down to ~shoulder)
+      if(ell(x,y,cx,11,12.5,10.5)) col=cfg.hair;
+      // face oval overwrites hair in the lower-center region
+      if(ell(x,y,cx,18,8.7,10)) col=cfg.skin;
+      // bangs strip: keep hair color across the very top of the face oval
+      if(ell(x,y,cx,18,8.7,10) && y<=13) col=cfg.hair;
+      // side-swept fringe accent (highlight streak)
+      if(ell(x,y,cx-6,9,3,7)) col=cfg.hairHi;
+      row.push(col);
+    }
+    grid.push(row);
+  }
+  // eyebrows
+  for(let x=cx-7;x<=cx-3;x++) if(grid[15]) grid[15][x]='Y';
+  for(let x=cx+3;x<=cx+7;x++) if(grid[15]) grid[15][x]='Y';
+  // eyes (white)
+  for(let yy=17;yy<=18;yy++){
+    for(let x=cx-8;x<=cx-3;x++) grid[yy][x]='E';
+    for(let x=cx+3;x<=cx+8;x++) grid[yy][x]='E';
+  }
+  // pupils
+  grid[17][cx-6]='P'; grid[18][cx-6]='P'; grid[17][cx-5]='P'; grid[18][cx-5]='P';
+  grid[17][cx+5]='P'; grid[18][cx+5]='P'; grid[17][cx+6]='P'; grid[18][cx+6]='P';
+  // blush
+  for(const ox of [-8,7]){
+    for(let yy=20;yy<=21;yy++) for(let x=cx+ox;x<=cx+ox+2;x++) if(grid[yy][x]) grid[yy][x]='B';
+  }
+  // mouth
+  for(let x=cx-2;x<=cx+1;x++){ grid[24][x]='M'; }
+  // neck
+  for(let y=27;y<=29;y++) for(let x=cx-4;x<=cx+4;x++) grid[y][x]=cfg.skin;
+  // garment trapezoid (shoulders/top)
+  for(let y=29;y<ROWS;y++){
+    const t=(y-29)/(ROWS-29);
+    const half=6+t*12;
+    for(let x=Math.round(cx-half);x<=Math.round(cx+half);x++){
+      if(x>=0&&x<COLS) grid[y][x]=cfg.top;
+    }
+  }
+  // collar V
+  for(let y=29;y<=35;y++){
+    const t=(y-29)/6;
+    const half=1+t*5;
+    for(let x=Math.round(cx-half);x<=Math.round(cx+half);x++){
+      if(x>=0&&x<COLS&&grid[y][x]) grid[y][x]=cfg.collar;
+    }
+  }
+  if(cfg.tie){
+    for(let y=30;y<=37;y++){ grid[y][cx]=cfg.tie; grid[y][cx-1]=cfg.tie; }
+  }
+  // ponytail (optional, drawn last so it sits on top)
+  if(cfg.ponytail){
+    for(let y=0;y<ROWS;y++){
+      for(let x=0;x<COLS;x++){
+        if(ell(x,y,cx+14,7,5.5,10)) grid[y][x]=cfg.hair;
+        if(ell(x,y,cx+12,2.5,2.4,2.4)) grid[y][x]=cfg.tie||'#c85a4a';
+      }
+    }
+  }
+  // lapel accents for jacket-type outfits
+  if(cfg.lapel){
+    for(let y=30;y<=38;y++){
+      const lx=Math.round(cx-6-(y-30)*0.4);
+      const rx=Math.round(cx+6+(y-30)*0.4);
+      if(grid[y][lx]) grid[y][lx]=cfg.lapel;
+      if(grid[y][rx]) grid[y][rx]=cfg.lapel;
+    }
+  }
+  return grid;
+}
+
+const AKSARA_CFG={hair:'#3c2b21', hairHi:'#6a4c38', skin:'#f6d0a8', top:'#eef0e6', collar:'#24344a', tie:'#c85a4a', ponytail:true};
+const LANGIT_CFG={hair:'#c9d3da', hairHi:'#eef2f4', skin:'#f0c79c', top:'#232f42', collar:'#101722', lapel:'#3a4a63', ponytail:false};
+
+const canvas=document.getElementById('charCanvas');
+const ctx=canvas.getContext('2d');
+function drawSprite(grid){
+  canvas.width=COLS*UNIT; canvas.height=ROWS*UNIT;
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const c=grid[y][x];
+    if(c){
+      ctx.fillStyle = (c==='Y')?'#2a1e17' : (c==='E')?'#ffffff' : (c==='P')?'#241a12' : (c==='B')?'#ec9e86' : (c==='M')?'#7a3b34' : c;
+      ctx.fillRect(x*UNIT,y*UNIT,UNIT,UNIT);
+    }
+  }
+}
+const AKSARA_GRID=buildGrid(AKSARA_CFG);
+const LANGIT_GRID=buildGrid(LANGIT_CFG);
+const charGlow=document.getElementById('charGlow');
+function showChar(who){
+  if(!who){ canvas.style.display='none'; charGlow.style.display='none'; return; }
+  canvas.style.display='block'; charGlow.style.display='block';
+  drawSprite(who==='Aksara' ? AKSARA_GRID : LANGIT_GRID);
+}
+
+/* =========================================================
+   AUDIO — synth soundtrack + rain/wind ambience
+   ========================================================= */
+let actx=null, musicNodes=[], rainNode=null, windNode=null, muted=false, voiceOn=true;
+function ensureAudio(){
+  if(actx) return;
+  try{
+    actx=new (window.AudioContext||window.webkitAudioContext)();
+  }catch(e){ actx=null; }
+}
+function startMusic(){
+  ensureAudio(); if(!actx) return;
+  stopMusic();
+  try{
+    if(actx.state==='suspended') actx.resume().catch(()=>{});
+    const notes=[220,246.94,261.63,293.66,329.63,349.23];
+    const gain=actx.createGain(); gain.gain.value=muted?0:0.055; gain.connect(actx.destination);
+    musicNodes.push(gain);
+    function loop(){
+      const n=notes[Math.floor(Math.random()*notes.length)];
+      const osc=actx.createOscillator(); osc.type='sine'; osc.frequency.value=n;
+      const osc2=actx.createOscillator(); osc2.type='triangle'; osc2.frequency.value=n/2
